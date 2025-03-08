@@ -26,6 +26,26 @@ class GhostCursor:
         self.moving = False
         self.overshoot_spread = 10
         self.overshoot_radius = 120
+        self.is_mobile = None
+
+    async def detect_mobile(self) -> bool:
+        """Detect if the current device is a mobile device"""
+        if self.is_mobile is None:
+            self.is_mobile = await self.page.evaluate("""() => {
+                // Check if the user agent string indicates a mobile device
+                const userAgent = navigator.userAgent;
+                const isMobileUserAgent = /Mobi|Android/i.test(userAgent);
+
+                // Check if the platform indicates a mobile device
+                const platform = navigator.platform;
+                const isMobilePlatform = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(platform);
+
+                // Check if touch events are supported
+                const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+                return isMobileUserAgent || isMobilePlatform || hasTouchSupport;
+            }""")
+        return self.is_mobile
 
     async def get_cdp_session(self) -> Coroutine[None, None, CDPSession]:
         if not hasattr(self, "cdp_session"):
@@ -87,17 +107,25 @@ class GhostCursor:
         wait_for_click: Optional[float] = None,
     ):
         self.toggle_random_move(False)
+        target_coords = self.previous  # Default to current position
+        
         if selector is not None:
             await self.move(selector, padding_percentage, wait_for_selector)
             self.toggle_random_move(False)
+            target_coords = self.previous  # Update target coords after move
 
         try:
-            await self.page.mouse.down()
-            if wait_for_click is not None:
-                await asyncio.sleep(wait_for_click / 1000)
-            await self.page.mouse.up()
+            is_mobile = await self.detect_mobile()
+            if not is_mobile:
+                await self.page.mouse.down()
+                if wait_for_click is not None:
+                    await asyncio.sleep(wait_for_click / 1000)
+                await self.page.mouse.up()
+            else:
+                # Use explicit target coordinates for tap
+                await self.page.touchscreen.tap(target_coords.x, target_coords.y)
         except Exception as exc:
-            logger.debug("Warning: could not click mouse, error message: %s", exc)
+            logger.debug("Warning: could not click mouse/touch, error message: %s", exc)
 
         await asyncio.sleep(random.random() * 2)
         self.toggle_random_move(True)
