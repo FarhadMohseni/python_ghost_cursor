@@ -41,9 +41,9 @@ class GhostCursor:
                 const isMobilePlatform = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(platform);
 
                 // Check if touch events are supported
-                const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+                // const hasTouchSupport = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-                return isMobileUserAgent || isMobilePlatform || hasTouchSupport;
+                return isMobileUserAgent || isMobilePlatform;
             }""")
         return self.is_mobile
 
